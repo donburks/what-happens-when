@@ -24,6 +24,20 @@ Table of Contents
    :backlinks: none
    :local:
 
+The "g" key is pressed
+----------------------
+The following sections explains all about the physical keyboard
+and the OS interrupts. But, a whole lot happens after that which
+isn't explained. When you just press "g" the browser receives the
+event and the entire auto-complete machinery kicks into high gear.
+Depending on your browser's algorithm and if you are in
+private/incognito mode or not various suggestions will be presented
+to you in the dropbox below the URL bar. Most of these algorithms
+prioritize results based on search history and bookmarks. You are
+going to type "google.com" so none of it matters, but a lot of code
+will run before you get there and the suggestions will be refined
+with each key press. It may even suggest "google.com" before you type it.
+
 The "enter" key bottoms out
 ---------------------------
 
@@ -68,9 +82,9 @@ connection, but historically has been over PS/2 or ADB connections.
   circuit through the electrostatic field of the conductive layer and
   creates a voltage drop at that point on the screen. The
   ``screen controller`` then raises an interrupt reporting the coordinate of
-  the 'click'.
+  the key press.
 
-- Then the mobile OS notifies the current focused application of a click event
+- Then the mobile OS notifies the current focused application of a press event
   in one of its GUI elements (which now is the virtual keyboard application
   buttons).
 
@@ -147,7 +161,6 @@ sends the character to the ``window manager`` (DWM, metacity, i3, etc), so the
 The graphical API of the window  that receives the character prints the
 appropriate font symbol in the appropriate focused field.
 
-
 Parse URL
 ---------
 
@@ -169,6 +182,14 @@ the text given in the address box to the browser's default web search engine.
 In many cases the url has a special piece of text appended to it to tell the
 search engine that it came from a particular browser's url bar.
 
+Convert non-ASCII Unicode characters in hostname
+------------------------------------------------
+
+* The browser checks the hostname for characters that are not in ``a-z``,
+  ``A-Z``, ``0-9``, ``-``, or ``.``.
+* Since the hostname is ``google.com`` there won't be any, but if there were
+  the browser would apply `Punycode`_ encoding to the hostname portion of the
+  URL.
 
 Check HSTS list
 ---------------
@@ -184,20 +205,11 @@ Check HSTS list
   `downgrade attack`_, which is why the HSTS list is included in modern web
   browsers.)
 
-
-Convert non-ASCII Unicode characters in hostname
-------------------------------------------------
-
-* The browser checks the hostname for characters that are not in ``a-z``,
-  ``A-Z``, ``0-9``, ``-``, or ``.``.
-* Since the hostname is ``google.com`` there won't be any, but if there were
-  the browser would apply `Punycode`_ encoding to the hostname portion of the
-  URL.
-
 DNS lookup
 ----------
 
-* Browser checks if the domain is in its cache.
+* Browser checks if the domain is in its cache. (to see the DNS Cache in
+  Chrome, go to `chrome://net-internals/#dns <chrome://net-internals/#dns>`_).
 * If not found, the browser calls ``gethostbyname`` library function (varies by
   OS) to do the lookup.
 * ``gethostbyname`` checks if the hostname can be resolved by reference in the
@@ -214,9 +226,10 @@ DNS lookup
 
 ARP process
 -----------
-In order to send an ARP broadcast the network stack library needs the target IP
-address to look up. It also needs to know the MAC address of the interface it
-will use to send out the ARP broadcast.
+
+In order to send an ARP (Address Resolution Protocol) broadcast the network
+stack library needs the target IP address to look up. It also needs to know the
+MAC address of the interface it will use to send out the ARP broadcast.
 
 The ARP cache is first checked for an ARP entry for our target IP. If it is in
 the cache, the library function returns the result: Target IP = MAC.
@@ -230,7 +243,8 @@ If the entry is not in the ARP cache:
 
 * The MAC address of the selected network interface is looked up.
 
-* The network library send a Layer 2 ARP request:
+* The network library sends a Layer 2 (data link layer of the `OSI model`_)
+  ARP request:
 
 ``ARP Request``::
 
@@ -248,13 +262,13 @@ Directly connected:
 
 Hub:
 
-* If the computer is connected to a hub the hub will broadcast the ARP
-  request out all other ports. If the router is connected on the same "wire"
+* If the computer is connected to a hub, the hub will broadcast the ARP
+  request out all other ports. If the router is connected on the same "wire",
   it will respond with an ``ARP Reply`` (see below).
 
 Switch:
 
-* If the computer is connected to a switch the switch will check it's local
+* If the computer is connected to a switch, the switch will check its local
   CAM/MAC table to see which port has the MAC address we are looking for. If
   the switch has no entry for the MAC address it will rebroadcast the ARP
   request to all other ports.
@@ -262,7 +276,7 @@ Switch:
 * If the switch has an entry in the MAC/CAM table it will send the ARP request
   to the port that has the MAC address we are looking for.
 
-* If the router is on the same "wire" it will respond with an ``ARP Reply``
+* If the router is on the same "wire", it will respond with an ``ARP Reply``
   (see below)
 
 ``ARP Reply``::
@@ -283,10 +297,10 @@ the default gateway it can resume its DNS process:
 
 Opening of a socket
 -------------------
-Once the browser receives the IP address of the destination server it takes
+Once the browser receives the IP address of the destination server, it takes
 that and the given port number from the URL (the HTTP protocol defaults to port
-80, and HTTPS to port 443) and makes a call to the system library function
-named ``socket`` and requests a TCP socket stream - ``AF_INET`` and
+80, and HTTPS to port 443), and makes a call to the system library function
+named ``socket`` and requests a TCP socket stream - ``AF_INET/AF_INET6`` and
 ``SOCK_STREAM``.
 
 * This request is first passed to the Transport Layer where a TCP segment is
@@ -320,12 +334,13 @@ or direct Ethernet connections in which case the data remains digital and
 is passed directly to the next `network node`_ for processing.
 
 Eventually, the packet will reach the router managing the local subnet. From
-there, it will continue to travel to the AS's border routers, other ASes, and
-finally to the destination server. Each router along the way extracts the
-destination address from the IP header and routes it to the appropriate next
-hop. The TTL field in the IP header is decremented by one for each router that
-passes. The packet will be dropped if the TTL field reaches zero or if the
-current router has no space in its queue (perhaps due to network congestion).
+there, it will continue to travel to the autonomous system's (AS) border
+routers, other ASes, and finally to the destination server. Each router along
+the way extracts the destination address from the IP header and routes it to
+the appropriate next hop. The time to live (TTL) field in the IP header is
+decremented by one for each router that passes. The packet will be dropped if
+the TTL field reaches zero or if the current router has no space in its queue
+(perhaps due to network congestion).
 
 This send and receive happens multiple times following the TCP connection flow:
 
@@ -353,7 +368,8 @@ This send and receive happens multiple times following the TCP connection flow:
 TLS handshake
 -------------
 * The client computer sends a ``ClientHello`` message to the server with its
-  TLS version, list of cipher algorithms and compression methods available.
+  Transport Layer Security (TLS) version, list of cipher algorithms and
+  compression methods available.
 
 * The server replies with a ``ServerHello`` message to the client with the
   TLS version, selected cipher, selected compression methods and the server's
@@ -364,7 +380,7 @@ TLS handshake
 * The client verifies the server digital certificate against its list of
   trusted CAs. If trust can be established based on the CA, the client
   generates a string of pseudo-random bytes and encrypts this with the server's
-  public key. These random bytes can be used determine the symmetric key.
+  public key. These random bytes can be used to determine the symmetric key.
 
 * The server decrypts the random bytes using its private key and uses these
   bytes to generate its own copy of the symmetric master key.
@@ -453,8 +469,9 @@ and IIS for Windows.
 
 * The HTTPD (HTTP Daemon) receives the request.
 * The server breaks down the request to the following parameters:
-   * HTTP Request Method (either GET, POST, HEAD, PUT and DELETE). In the case
-     of a URL entered directly into the address bar, this will be GET.
+   * HTTP Request Method (either ``GET``, ``HEAD``, ``POST``, ``PUT``,
+     ``DELETE``, ``CONNECT``, ``OPTIONS``, or ``TRACE``). In the case of a URL
+     entered directly into the address bar, this will be ``GET``.
    * Domain, in this case - google.com.
    * Requested path/page, in this case - / (as no specific path/page was
      requested, / is the default path).
@@ -528,7 +545,7 @@ The components of the browsers are:
   boxes and windows. This backend exposes a generic interface that is not
   platform specific.
   Underneath it uses operating system user interface methods.
-* **JavaScript interpreter:** The JavaScript interpreter is used to parse and
+* **JavaScript engine:** The JavaScript engine is used to parse and
   execute JavaScript code.
 * **Data storage:** The data storage is a persistence layer. The browser may
   need to save all sorts of data locally, such as cookies. Browsers also
@@ -565,7 +582,7 @@ The reasons are:
   process actually modifies the input.
 
 Unable to use the regular parsing techniques, the browser utilizes a custom
-parsers for parsing HTML. The parsing algorithm is described in
+parser for parsing HTML. The parsing algorithm is described in
 detail by the HTML5 specification.
 
 The algorithm consists of two stages: tokenization and tree construction.
@@ -650,7 +667,7 @@ of some timing mechanism (such as a Google Doodle animation) or user
 interaction (typing a query into the search box and receiving suggestions).
 Plugins such as Flash or Java may execute as well, although not at this time on
 the Google homepage. Scripts can cause additional network requests to be
-performed, as well as modify the page or its layout, effecting another round of
+performed, as well as modify the page or its layout, causing another round of
 page rendering and painting.
 
 .. _`Creative Commons Zero`: https://creativecommons.org/publicdomain/zero/1.0/
@@ -664,3 +681,4 @@ page rendering and painting.
 .. _`varies by OS` : https://en.wikipedia.org/wiki/Hosts_%28file%29#Location_in_the_file_system
 .. _`简体中文`: https://github.com/skyline75489/what-happens-when-zh_CN
 .. _`downgrade attack`: http://en.wikipedia.org/wiki/SSL_stripping
+.. _`OSI Model`: https://en.wikipedia.org/wiki/OSI_model
